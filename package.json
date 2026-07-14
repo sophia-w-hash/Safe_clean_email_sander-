@@ -1,7 +1,7 @@
 {
   "name": "safe-clean-email-sender",
   "version": "1.0.0",
-  "description": "Safe Clean Email Sender Hosted on Render",
+  "description": "6 Email Concurrent Sender Hosted on Render",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
