@@ -162,7 +162,7 @@ async function sendAll(){
   
   let ok=0,fail=0;
 
-  // Sending Logic & Speed: Kept absolutely identical as requested!
+  // Sending Logic (Parallel 6 with 500ms sleep) - EXACTLY SAME
   for(let i=0; i<emails.length; i+=6){
     const chunk = emails.slice(i, i+6);
     
@@ -182,7 +182,6 @@ async function sendAll(){
     await Promise.all(promises);
     setProgress(Math.min(i + chunk.length, emails.length), emails.length);
     
-    // Exactly 500ms delay between 6-email chunks
     if(i + 6 < emails.length) await sleep(500);
   }
 
