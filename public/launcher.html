@@ -1,3 +1,4 @@
+<!-- launcher.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -178,13 +179,17 @@ async function sendAll(){
   clearLog();setStatus('sending','📤',`Launching emails in concurrent batches...`);setProgress(0,emails.length);
   
   let ok=0, fail=0;
-  const BATCH_SIZE = 6;
+  const BATCH_SIZE = 6; // Ek saath 6 email send honge
 
   for(let i = 0; i < emails.length; i += BATCH_SIZE) {
+    // 6 emails ka current chunk nikalna
     const currentBatch = emails.slice(i, i + BATCH_SIZE);
+    
+    // Promise.all se sabhi 6 requests ek saath hit hongi
     const promises = currentBatch.map(email => sendEmailRequest(email, config));
     const results = await Promise.all(promises);
 
+    // Results analyze aur log karna
     results.forEach(res => {
       if(res.success) {
         ok++;
@@ -198,6 +203,7 @@ async function sendAll(){
     const completedSoFar = Math.min(i + BATCH_SIZE, emails.length);
     setProgress(completedSoFar, emails.length);
 
+    // Agar aage aur batches bache hain, to 1.5s ka delay dalo taaki Google rate-limit na kare
     if(i + BATCH_SIZE < emails.length) {
       addLog('info','⏳',`Waiting 1.5s before next batch...`);
       await sleep(1500);
