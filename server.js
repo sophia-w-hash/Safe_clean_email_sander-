@@ -7,23 +7,16 @@ const path       = require('path');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// ==========================================
-// 🔑 APNA USERNAME AUR PASSWORD YAHAN CHANGE KAREIN:
-const ADMIN_USER = 'admin';       // <--- Apna username yahan likhein
-const ADMIN_PASS = 'admin123';    // <--- Apna secure password yahan likhein
-const SESSION_SECRET = 'fast-mailer-secure-key-2026'; // Session secure rakhne ke liye kuch bhi random text
-// ==========================================
-
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // SAFE SESSIONS
 app.use(session({
-  secret: SESSION_SECRET,
+  secret: 'fast-mailer-secure-key-2026',
   resave: false,
   saveUninitialized: false,
   cookie: { 
-    secure: false, // Local environment par chalane ke liye false (Production/HTTPS par true kar sakte hain)
+    secure: false, // Local host par bina HTTPS ke chalane ke liye false rakha hai
     httpOnly: true, 
     sameSite: 'strict', 
     maxAge: 1000 * 60 * 60 * 8 // 8 Hours
@@ -54,12 +47,15 @@ app.get('/launcher', requireLogin, (req, res) => {
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
 
+  // FIXXED: Directly using your original default credentials 'y' and 'y'
+  const validUser = 'y';
+  const validPass = 'y';
+
   if (!username || !password) {
     return res.json({ success: false, message: 'Username and password are required' });
   }
 
-  // Yahan par humne set kiye hue ADMIN_USER aur ADMIN_PASS se matching ho rahi hai
-  if (username === ADMIN_USER && password === ADMIN_PASS) {
+  if (username === validUser && password === validPass) {
     req.session.loggedIn = true;
     return res.json({ success: true });
   }
@@ -76,7 +72,7 @@ app.post('/logout', (req, res) => {
   });
 });
 
-// SECURE EMAIL DISPATCH
+// SECURE EMAIL DISPATCH (Same exact speed & batch logic)
 app.post('/api/send-email', requireLogin, async (req, res) => {
   const { senderName, gmailId, appPassword, subject, messageBody, to } = req.body;
   
