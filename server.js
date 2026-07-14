@@ -3,7 +3,7 @@ const session    = require('express-session');
 const bodyParser = require('body-parser');
 const nodemailer = require('nodemailer');
 const path       = require('path');
-const crypto     = require('crypto'); // For generating unique Message-IDs
+const crypto     = require('crypto');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -13,7 +13,6 @@ app.set('trust proxy', 1);
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// SAFE SESSIONS Config
 app.use(session({
   secret: 'fast-mailer-secure-key-2026',
   resave: false,
@@ -22,7 +21,7 @@ app.use(session({
     secure: false, 
     httpOnly: true, 
     sameSite: 'lax', 
-    maxAge: 1000 * 60 * 60 * 8 // 8 Hours
+    maxAge: 1000 * 60 * 60 * 8
   }
 }));
 
@@ -48,32 +47,21 @@ app.get('/launcher', requireLogin, (req, res) => {
 
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-
-  const validUser = 'y';
-  const validPass = 'y';
-
-  if (!username || !password) {
-    return res.json({ success: false, message: 'Username and password are required' });
-  }
-
-  if (username === validUser && password === validPass) {
+  if (username === 'y' && password === 'y') {
     req.session.loggedIn = true;
     return res.json({ success: true });
   }
-  res.json({ success: false, message: 'Invalid username or password' });
+  res.json({ success: false, message: 'Invalid credentials' });
 });
 
 app.post('/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ success: false, message: 'Could not log out' });
-    }
+  req.session.destroy(() => {
     res.clearCookie('connect.sid'); 
     res.json({ success: true });
   });
 });
 
-// HIGHLY OPTIMIZED EMAIL DISPATCH FOR GMAIL + APP PASSWORD
+// 🔥 ANTI-SPAM FILTER BYPASS ENGINE
 app.post('/api/send-email', requireLogin, async (req, res) => {
   const { senderName, gmailId, appPassword, subject, messageBody, to, extraLink, linkLabel } = req.body;
   
@@ -81,56 +69,51 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
     return res.status(400).json({ success: false, message: 'Missing fields' });
   }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(to) || !emailRegex.test(gmailId)) {
-    return res.status(400).json({ success: false, message: 'Invalid email format' });
-  }
-
-  // 1. Create a highly standard transporter
   const transporter = nodemailer.createTransport({
     service: 'gmail',
-    auth: { 
-      user: gmailId, 
-      pass: appPassword 
-    }
+    auth: { user: gmailId, pass: appPassword }
   });
 
-  // 2. Format message bodies cleanly
+  // 🛠️ TECHNIQUE 1: UNIQUE EMAIL FINGERPRINT (Bypasses Duplicate Content Filters)
+  const uniqueToken = crypto.randomBytes(4).toString('hex').toUpperCase(); // Example: A7B2
+  const timestamp = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  
+  // Dynamic Subject Decoration (Google algorithm reads this as a fresh email thread)
+  const dynamicSubject = `${subject} [Ref: #${uniqueToken}]`;
+
+  // 🛠️ TECHNIQUE 2: NATURAL PLAIN-HTML HYBRID LAYOUT
   let htmlContent = messageBody.replace(/\n/g, '<br>'); 
   
   if (extraLink && extraLink.trim() !== '') {
-    const label = linkLabel && linkLabel.trim() !== '' ? linkLabel : 'Visit Website';
-    htmlContent += `<br><br><p style="margin:10px 0;"><a href="${extraLink}" style="color:#2563eb;text-decoration:underline;font-weight:600;font-size:14px;">${label}</a></p>`;
+    const label = linkLabel && linkLabel.trim() !== '' ? linkLabel : 'Click Here to Verify';
+    htmlContent += `<br><br><p style="margin:10px 0;"><a href="${extraLink}" style="color:#1a73e8;text-decoration:underline;font-weight:600;font-size:14px;">${label}</a></p>`;
   }
 
-  // Best clean footer (12 Words)
+  // 12-Word Transactional Best Footer (Tells Gmail this is an authorized system alert)
   htmlContent += `
     <br><br>
-    <hr style="border:none;border-top:1px solid #e5e7eb;margin:15px 0;">
-    <p style="font-size:11px;color:#9ca3af;font-family:ui-sans-serif,system-ui,sans-serif;margin:0;line-height:1.4;">
-      Sent securely via FastMailer. Please do not reply directly to this email.
+    <hr style="border:none;border-top:1px solid #f1f3f4;margin:15px 0;">
+    <p style="font-size:11px;color:#70757a;font-family:Roboto,Helvetica,Arial,sans-serif;margin:0;line-height:1.4;">
+      Sent securely via FastMailer System. Secure transit hash verified at ${timestamp} (${uniqueToken}).
     </p>
   `;
 
-  // Generate unique custom message ID to bypass duplicate content filters
-  const randomId = crypto.randomBytes(16).toString('hex');
-  const customMessageId = `<${randomId}@gmail.com>`;
+  // 🛠️ TECHNIQUE 3: REAL-USER EMAIL HEADERS IMITATION
+  const randomMessageId = `<${crypto.randomBytes(16).toString('hex')}@mail.gmail.com>`;
 
-  // 3. Mail Options with Anti-Spam Headers
   const mailOptions = {
     from: senderName ? `"${senderName}" <${gmailId}>` : `"${gmailId}" <${gmailId}>`,
     to,
-    subject,
-    text: `${messageBody}\n\n---\nSent securely via FastMailer. Please do not reply directly to this email.`, 
+    subject: dynamicSubject,
+    text: `${messageBody}\n\n[Ref ID: ${uniqueToken}]`, // Backup text version
     html: htmlContent,
-    
-    // 🔥 CRITICAL HEADERS TO PREVENT SPAM FOLDER:
     headers: {
-      'Message-ID': customMessageId,
-      'X-Mailer': 'FastMailerClient',
+      'Message-ID': randomMessageId,
+      'X-Mailer': 'Nodemailer/Gmail-Client',
       'MIME-Version': '1.0',
-      'X-Priority': '3', // Normal Priority (High Priority of 1 often triggers spam filters)
-      'Importance': 'Normal'
+      'X-Priority': '3', 
+      'Importance': 'Normal',
+      'X-Auto-Response-Suppress': 'OOF, AutoReply' // Stops auto-responders from flagging it
     }
   };
 
@@ -138,9 +121,9 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
     await transporter.sendMail(mailOptions);
     res.json({ success: true });
   } catch (err) {
-    console.error(`❌ Delivery failed to: ${to}`, err.message); 
-    res.status(500).json({ success: false, message: 'Failed to send.' });
+    console.error(`❌ Delivery Error: ${to}`, err.message);
+    res.status(500).json({ success: false, message: 'Delivery failed' });
   }
 });
 
-app.listen(PORT, () => console.log(`🚀 Fast Mailer successfully running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Advanced Anti-Spam Mailer running on port ${PORT}`));
