@@ -7,18 +7,21 @@ const path       = require('path');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+// Render proxy trust taaki sessions HTTPS par sahi se kaam karein
+app.set('trust proxy', 1);
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// SAFE SESSIONS
+// SAFE SESSIONS Config
 app.use(session({
   secret: 'fast-mailer-secure-key-2026',
   resave: false,
   saveUninitialized: false,
   cookie: { 
-    secure: false, // Local host par bina HTTPS ke chalane ke liye false rakha hai
+    secure: false, // Local aur Render dono par load hone ke liye false rakha hai (Session error se bachne ke liye)
     httpOnly: true, 
-    sameSite: 'strict', 
+    sameSite: 'lax', // Redirect handle karne ke liye safe attribute
     maxAge: 1000 * 60 * 60 * 8 // 8 Hours
   }
 }));
@@ -47,7 +50,7 @@ app.get('/launcher', requireLogin, (req, res) => {
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
 
-  // FIXXED: Directly using your original default credentials 'y' and 'y'
+  // STRICT FIX: No environment variables can override this now
   const validUser = 'y';
   const validPass = 'y';
 
@@ -72,7 +75,7 @@ app.post('/logout', (req, res) => {
   });
 });
 
-// SECURE EMAIL DISPATCH (Same exact speed & batch logic)
+// SECURE EMAIL DISPATCH (Speed aur Batching limit bilkul same hai)
 app.post('/api/send-email', requireLogin, async (req, res) => {
   const { senderName, gmailId, appPassword, subject, messageBody, to } = req.body;
   
