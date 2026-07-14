@@ -1,7 +1,7 @@
 {
-  "name": "secure-email-sender",
+  "name": "safe-clean-email-sender",
   "version": "1.0.0",
-  "description": "High deliverability secure email sender",
+  "description": "Safe Clean Email Sender Hosted on Render",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
