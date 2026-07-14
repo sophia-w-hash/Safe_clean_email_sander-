@@ -1,4 +1,3 @@
-// server.js
 const express    = require('express');
 const session    = require('express-session');
 const bodyParser = require('body-parser');
@@ -58,7 +57,7 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
     auth: { user: gmailId, pass: appPassword }
   });
 
-  // Inbox delivery ke liye unique Message-ID generate karna
+  // Unique Message-ID pattern to blend with regular user mails (Anti-Spam Optimization)
   const randomHex = Math.random().toString(16).substring(2, 10);
   const customMessageId = `<${Date.now()}.${randomHex}@gmail.com>`;
 
@@ -68,11 +67,10 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
       to,
       subject,
       text: messageBody,
-      // Anti-Spam Headers (Inbox Delivery Optimization)
       headers: {
         'Message-ID': customMessageId,
-        'X-Mailer': 'AppleMail', // Fake regular desktop client
-        'X-Priority': '3', // Normal Priority
+        'X-Mailer': 'AppleMail', // Mocks normal desktop user activity
+        'X-Priority': '3',
         'Precedence': 'list',
         'Auto-Submitted': 'auto-generated'
       }
