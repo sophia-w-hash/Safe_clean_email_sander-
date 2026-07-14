@@ -1,46 +1,52 @@
 const express = require('express');
 const nodemailer = require('nodemailer');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
 
-// Middleware
+// Middleware Setups
 app.use(express.json());
-app.use(cors()); // अगर आप किसी फ्रंटेंड से रिक्वेस्ट भेज रहे हैं
+app.use(cors());
 
-// Nodemailer Transporter सेटअप (High-Security & Reliable Settings)
+// Static Files Serve करना (ताकि public फोल्डर की HTML फाइलें काम करें)
+app.use(express.static(path.join(__dirname, 'public')));
+
+// मुख्य रूट खोलते ही सीधे launcher.html ओपन होगा
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'launcher.html'));
+});
+
+// ईमेल के लिए हाई-सिक्योरिटी SMTP ट्रांसपोर्टर
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT),
-    secure: true, // पोर्ट 465 के लिए true (SSL)
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '465'),
+    secure: true, 
     auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: process.env.SMTP_USER, // Render environment variable से आएगा
+        pass: process.env.SMTP_PASS, // Render environment variable से आएगा
     },
-    // स्पैम से बचने और बेहतर डिलीवरी के लिए TLS सेटिंग्स
     tls: {
-        rejectUnauthorized: true 
+        rejectUnauthorized: true // इनबॉक्स डिलीवरी और एंटी-स्पैम के लिए
     }
 });
 
-// ईमेल भेजने का API Route
+// ईमेल भेजने वाला API API URL
 app.post('/send-email', async (req, res) => {
     const { to, subject, text, html } = req.body;
 
-    // बेसिक इनपुट वैलिडेशन (सुरक्षा के लिए)
     if (!to || !subject || (!text && !html)) {
-        return res.status(400).json({ success: false, message: "Missing required fields" });
+        return res.status(400).json({ success: false, message: "ज़रूरी फील्ड्स खाली हैं!" });
     }
 
     try {
         const mailOptions = {
-            from: `"Your App Name" <${process.env.SMTP_USER}>`, // प्रेषक का नाम और ईमेल
-            to: to, // जिसे ईमेल भेजना है
-            subject: subject, // विषय
-            text: text, // प्लेन टेक्स्ट वर्जन
-            html: html, // HTML वर्जन (अगर आप सुंदर ईमेल भेजना चाहते हैं)
-            // स्पैम फिल्टर को पास करने के लिए Headers
+            from: `"Support Team" <${process.env.SMTP_USER}>`,
+            to: to,
+            subject: subject,
+            text: text, // एंटी-स्पैम के लिए टेक्स्ट बैकअप जरूरी है
+            html: html, // सुन्दर टेम्पलेट के लिए HTML
             headers: {
                 "X-Priority": "3",
                 "X-MSMail-Priority": "Normal",
@@ -48,20 +54,18 @@ app.post('/send-email', async (req, res) => {
             }
         };
 
-        // ईमेल भेजें
         const info = await transporter.sendMail(mailOptions);
-        
-        console.log("Email sent successfully: %s", info.messageId);
-        return res.status(200).json({ success: true, message: "Email sent to inbox successfully!" });
+        console.log("Email Sent Successfully! ID:", info.messageId);
+        return res.status(200).json({ success: true, message: "ईमेल सीधे इनबॉक्स में भेज दिया गया है!" });
 
     } catch (error) {
-        console.error("Error sending email:", error);
-        return res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
+        console.error("Email Error:", error);
+        return res.status(500).json({ success: false, message: "ईमेल भेजने में विफल", error: error.message });
     }
 });
 
-// सर्वर चालू करें
+// सर्वर पोर्ट लिस्नर
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`Server launched and running on port ${PORT}`);
 });
