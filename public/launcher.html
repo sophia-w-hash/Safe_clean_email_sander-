@@ -3,27 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fast Mailer Launcher</title>
+    <title>Fast 6-Mailer Launcher</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .container { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
-        h2 { text-align: center; color: #333; }
-        input, textarea, button { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { background: #007bff; color: white; border: none; font-size: 16px; cursor: pointer; font-weight: bold; }
+        body { font-family: Arial, sans-serif; background: #f4f7f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px 0; }
+        .container { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        h2 { text-align: center; color: #333; margin-top: 0; }
+        .email-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        input, textarea, button { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .email-grid input { margin: 0; }
+        button { background: #007bff; color: white; border: none; font-size: 16px; cursor: pointer; font-weight: bold; margin-top: 15px; }
         button:hover { background: #0056b3; }
         .link-btn { text-align: center; margin-top: 15px; }
-        .link-btn a { color: #007bff; text-decoration: none; }
+        .link-btn a { color: #007bff; text-decoration: none; font-size: 14px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🚀 Secure Email Launcher</h2>
-    <form id="emailForm">
-        <input type="email" id="toEmail" placeholder="To: Client Email Address" required>
-        <input type="text" id="subject" placeholder="Subject" required>
-        <textarea id="message" rows="5" placeholder="Enter your text or HTML message here..." required></textarea>
-        <button type="submit" id="sendBtn">Send To Inbox</button>
+    <h2>🚀 6-Email Multi Launcher</h2>
+    <form id="bulkEmailForm">
+        
+        <label style="font-weight: bold; color: #555;">Enter Client Emails (Up to 6):</label>
+        <div class="email-grid">
+            <input type="email" class="client-email" placeholder="Email 1" required>
+            <input type="email" class="client-email" placeholder="Email 2 (Optional)">
+            <input type="email" class="client-email" placeholder="Email 3 (Optional)">
+            <input type="email" class="client-email" placeholder="Email 4 (Optional)">
+            <input type="email" class="client-email" placeholder="Email 5 (Optional)">
+            <input type="email" class="client-email" placeholder="Email 6 (Optional)">
+        </div>
+
+        <input type="text" id="subject" placeholder="Subject / Title" required>
+        <textarea id="message" rows="6" placeholder="Enter text message or HTML template here..." required></textarea>
+        
+        <button type="submit" id="sendBtn">Send All 6 To Inbox</button>
     </form>
     
     <div class="link-btn">
@@ -32,26 +45,33 @@
 </div>
 
 <script>
-    document.getElementById('emailForm').addEventListener('submit', async (e) => {
+    document.getElementById('bulkEmailForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         
         const sendBtn = document.getElementById('sendBtn');
-        const to = document.getElementById('toEmail').value;
         const subject = document.getElementById('subject').value;
         const messageBody = document.getElementById('message').value;
 
-        sendBtn.innerText = "Sending...";
+        // सभी 6 इनपुट बॉक्स से ईमेल कलेक्ट करना
+        const emailInputs = document.querySelectorAll('.client-email');
+        const emailArray = [];
+        emailInputs.forEach(input => {
+            if(input.value.trim() !== "") {
+                emailArray.push(input.value.trim());
+            }
+        });
+
+        sendBtn.innerText = "Sending to all...";
         sendBtn.disabled = true;
 
         try {
-            // ऑटोमैटिक चेक कि मैसेज टेक्स्ट है या HTML
             const isHtml = messageBody.includes('<') && messageBody.includes('>');
             
-            const response = await fetch('/send-email', {
+            const response = await fetch('/send-bulk-emails', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    to: to,
+                    emails: emailArray,
                     subject: subject,
                     text: isHtml ? "Please view this email in HTML format." : messageBody,
                     html: isHtml ? messageBody : `<p>${messageBody}</p>`
@@ -61,8 +81,8 @@
             const data = await response.json();
             
             if (data.success) {
-                alert('Success: Email delivered directly to Inbox!');
-                document.getElementById('emailForm').reset();
+                alert(`Success: ${data.message}`);
+                document.getElementById('bulkEmailForm').reset();
             } else {
                 alert('Error: ' + data.message);
             }
@@ -70,7 +90,7 @@
             alert('Server error connecting to backend.');
             console.error(err);
         } finally {
-            sendBtn.innerText = "Send To Inbox";
+            sendBtn.innerText = "Send All 6 To Inbox";
             sendBtn.disabled = false;
         }
     });
