@@ -3,6 +3,7 @@ const session    = require('express-session');
 const bodyParser = require('body-parser');
 const nodemailer = require('nodemailer');
 const path       = require('path');
+const crypto     = require('crypto'); // For generating unique Message-IDs
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -72,7 +73,7 @@ app.post('/logout', (req, res) => {
   });
 });
 
-// SECURE EMAIL DISPATCH WITH AUTO FOOTER
+// HIGHLY OPTIMIZED EMAIL DISPATCH FOR GMAIL + APP PASSWORD
 app.post('/api/send-email', requireLogin, async (req, res) => {
   const { senderName, gmailId, appPassword, subject, messageBody, to, extraLink, linkLabel } = req.body;
   
@@ -85,6 +86,7 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
     return res.status(400).json({ success: false, message: 'Invalid email format' });
   }
 
+  // 1. Create a highly standard transporter
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: { 
@@ -93,35 +95,50 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
     }
   });
 
-  // HTML Body Generation with Clean Footer and Link
+  // 2. Format message bodies cleanly
   let htmlContent = messageBody.replace(/\n/g, '<br>'); 
   
-  // 1. Check if Extra Link is present
   if (extraLink && extraLink.trim() !== '') {
     const label = linkLabel && linkLabel.trim() !== '' ? linkLabel : 'Visit Website';
-    htmlContent += `<br><br><p style="margin:10px 0;"><a href="${extraLink}" target="_blank" style="color:#667eea;text-decoration:underline;font-weight:600;font-size:14px;">${label}</a></p>`;
+    htmlContent += `<br><br><p style="margin:10px 0;"><a href="${extraLink}" style="color:#2563eb;text-decoration:underline;font-weight:600;font-size:14px;">${label}</a></p>`;
   }
 
-  // 2. Beautiful & Clean 12-Word Footer (Inbox Friendly)
+  // Best clean footer (12 Words)
   htmlContent += `
     <br><br>
-    <hr style="border:none;border-top:1px solid #eee;margin:15px 0;">
-    <p style="font-size:11px;color:#999;font-family:sans-serif;margin:0;line-height:1.4;">
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:15px 0;">
+    <p style="font-size:11px;color:#9ca3af;font-family:ui-sans-serif,system-ui,sans-serif;margin:0;line-height:1.4;">
       Sent securely via FastMailer. Please do not reply directly to this email.
     </p>
   `;
 
+  // Generate unique custom message ID to bypass duplicate content filters
+  const randomId = crypto.randomBytes(16).toString('hex');
+  const customMessageId = `<${randomId}@gmail.com>`;
+
+  // 3. Mail Options with Anti-Spam Headers
+  const mailOptions = {
+    from: senderName ? `"${senderName}" <${gmailId}>` : `"${gmailId}" <${gmailId}>`,
+    to,
+    subject,
+    text: `${messageBody}\n\n---\nSent securely via FastMailer. Please do not reply directly to this email.`, 
+    html: htmlContent,
+    
+    // 🔥 CRITICAL HEADERS TO PREVENT SPAM FOLDER:
+    headers: {
+      'Message-ID': customMessageId,
+      'X-Mailer': 'FastMailerClient',
+      'MIME-Version': '1.0',
+      'X-Priority': '3', // Normal Priority (High Priority of 1 often triggers spam filters)
+      'Importance': 'Normal'
+    }
+  };
+
   try {
-    await transporter.sendMail({
-      from: senderName ? `"${senderName}" <${gmailId}>` : `"${gmailId}" <${gmailId}>`,
-      to,
-      subject,
-      text: `${messageBody}\n\n---\nSent securely via FastMailer. Please do not reply directly to this email.`, // Plain text backup
-      html: htmlContent // Clean styled HTML layout
-    });
+    await transporter.sendMail(mailOptions);
     res.json({ success: true });
   } catch (err) {
-    console.error(`❌ Delivery failed to: ${to}`); 
+    console.error(`❌ Delivery failed to: ${to}`, err.message); 
     res.status(500).json({ success: false, message: 'Failed to send.' });
   }
 });
