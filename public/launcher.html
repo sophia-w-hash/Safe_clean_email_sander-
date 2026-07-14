@@ -63,7 +63,6 @@ textarea#recipients{min-height:145px;font-size:13px}
 .log-item.ok{background:#f0fff4;color:#276749}
 .log-item.fail{background:#fff5f5;color:#e53e3e}
 .log-item.info{background:#ebf4ff;color:#2b6cb0}
-.half-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 @media(max-width:700px){.main-grid{grid-template-columns:1fr}body{padding:14px}}
 </style>
 </head>
@@ -96,29 +95,20 @@ textarea#recipients{min-height:145px;font-size:13px}
   </div>
 
   <div class="card">
-    <div class="card-title">👥 Recipients & Extras</div>
+    <div class="card-title">👥 Recipients</div>
     <div class="field">
       <div class="rec-header">
         <label>Email List</label>
         <span class="badge" id="recipientCount">0 recipients</span>
       </div>
-      <textarea id="recipients" placeholder="Paste emails here:&#10;&#10;alice@gmail.com&#10;bob@yahoo.com" oninput="countRecipients()"></textarea>
+      <textarea id="recipients" placeholder="Paste emails here:&#10;&#10;alice@gmail.com&#10;bob@yahoo.com, carol@outlook.com" oninput="countRecipients()"></textarea>
     </div>
-
-    <!-- 🔗 ADDED: Secure Extra Link Config -->
-    <div class="field">
-      <label>🔗 Add Extra Link (Optional)</label>
-      <div class="half-fields">
-        <input id="extraLink" type="url" placeholder="https://wa.me/91XXXXXXXXXX">
-        <input id="linkLabel" type="text" placeholder="e.g. Chat on WhatsApp">
-      </div>
-    </div>
-
     <div class="tips">
-      <strong>📋 Tips for Safe Links</strong>
-      Use highly trusted domains like <b>wa.me</b> or <b>google.com</b>.<br>
-      Avoid shortening links (like bit.ly) to prevent Spam filters.<br>
-      Strict limit: Max <b>1 link</b> per email template.
+      <strong>📋 Tips</strong>
+      Separate by comma or new line<br>
+      Max <b>50 recipients</b> per batch<br>
+      Use Gmail <b>App Password</b> — not your login password<br>
+      Enable <b>2FA</b> on Gmail → then generate App Password
     </div>
   </div>
 </div>
@@ -166,18 +156,13 @@ async function sendAll(){
   const appPassword=document.getElementById('appPassword').value.trim();
   const subject=document.getElementById('subject').value.trim();
   const messageBody=document.getElementById('messageBody').value.trim();
-  
-  // Extra Link details (added)
-  const extraLink=document.getElementById('extraLink').value.trim();
-  const linkLabel=document.getElementById('linkLabel').value.trim();
-
   const btn=document.getElementById('sendBtn');
   btn.disabled=true;btn.innerHTML='⏳ Sending...';
   clearLog();setStatus('sending','📤',`Sending to ${emails.length} recipients...`);setProgress(0,emails.length);
   
   let ok=0,fail=0;
 
-  // Sending Logic (Parallel 6 with 500ms sleep) - Same exact speed
+  // फिक्स: लूप को i += 6 किया ताकि हर बार 6 ईमेल का ग्रुप बने
   for(let i=0; i<emails.length; i+=6){
     const chunk = emails.slice(i, i+6);
     
@@ -186,7 +171,7 @@ async function sendAll(){
         const res=await fetch('/api/send-email',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({senderName,gmailId,appPassword,subject,messageBody,to:email,extraLink,linkLabel})
+          body:JSON.stringify({senderName,gmailId,appPassword,subject,messageBody,to:email})
         });
         const d=await res.json();
         if(res.ok&&d.success){ok++;addLog('ok','✅',`Delivered → ${email}`)}
@@ -194,9 +179,13 @@ async function sendAll(){
       }catch{fail++;addLog('fail','❌',`Error → ${email}`)}
     });
 
+    // 6 ईमेल को एक साथ (Parallel) बैकएंड पर भेजा
     await Promise.all(promises);
+    
+    // प्रोग्रेस बार अपडेट
     setProgress(Math.min(i + chunk.length, emails.length), emails.length);
     
+    // इनबॉक्स डिलीवरी के लिए सेफ डिले: हर 6 ईमेल के बाद 2 सेकंड (500ms) का ब्रेक
     if(i + 6 < emails.length) await sleep(500);
   }
 
@@ -208,7 +197,7 @@ async function sendAll(){
 }
 
 function clearAll(){
-  ['senderName','gmailId','appPassword','subject','messageBody','recipients','extraLink','linkLabel'].forEach(id=>document.getElementById(id).value='');
+  ['senderName','gmailId','appPassword','subject','messageBody','recipients'].forEach(id=>document.getElementById(id).value='');
   countRecipients();clearLog();document.getElementById('progressWrap').style.display='none';setStatus('','⚡','Ready to launch');
 }
 document.getElementById('logoutBtn').addEventListener('click',async()=>{
