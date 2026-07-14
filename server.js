@@ -72,7 +72,7 @@ app.post('/logout', (req, res) => {
   });
 });
 
-// SECURE EMAIL DISPATCH
+// SECURE EMAIL DISPATCH WITH AUTO FOOTER
 app.post('/api/send-email', requireLogin, async (req, res) => {
   const { senderName, gmailId, appPassword, subject, messageBody, to, extraLink, linkLabel } = req.body;
   
@@ -93,21 +93,31 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
     }
   });
 
-  // 💬 INBOX METHOD: Agar extra link hai, toh clean single safe link attach hoga template ke niche html body mein
-  let htmlContent = messageBody.replace(/\n/g, '<br>'); // line breaks barkarar rakhne ke liye
+  // HTML Body Generation with Clean Footer and Link
+  let htmlContent = messageBody.replace(/\n/g, '<br>'); 
+  
+  // 1. Check if Extra Link is present
   if (extraLink && extraLink.trim() !== '') {
     const label = linkLabel && linkLabel.trim() !== '' ? linkLabel : 'Visit Website';
-    // Ekdum clean, safe signature link design:
-    htmlContent += `<br><br><hr style="border:none;border-top:1px solid #eee;margin:20px 0;"><p style="font-size:13px;color:#666;">For more details: <a href="${extraLink}" target="_blank" style="color:#667eea;text-decoration:underline;font-weight:600;">${label}</a></p>`;
+    htmlContent += `<br><br><p style="margin:10px 0;"><a href="${extraLink}" target="_blank" style="color:#667eea;text-decoration:underline;font-weight:600;font-size:14px;">${label}</a></p>`;
   }
+
+  // 2. Beautiful & Clean 12-Word Footer (Inbox Friendly)
+  htmlContent += `
+    <br><br>
+    <hr style="border:none;border-top:1px solid #eee;margin:15px 0;">
+    <p style="font-size:11px;color:#999;font-family:sans-serif;margin:0;line-height:1.4;">
+      Sent securely via FastMailer. Please do not reply directly to this email.
+    </p>
+  `;
 
   try {
     await transporter.sendMail({
       from: senderName ? `"${senderName}" <${gmailId}>` : `"${gmailId}" <${gmailId}>`,
       to,
       subject,
-      text: messageBody, // Backup text
-      html: htmlContent // Clickable link wala clean HTML body
+      text: `${messageBody}\n\n---\nSent securely via FastMailer. Please do not reply directly to this email.`, // Plain text backup
+      html: htmlContent // Clean styled HTML layout
     });
     res.json({ success: true });
   } catch (err) {
