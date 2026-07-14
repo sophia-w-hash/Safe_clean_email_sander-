@@ -61,7 +61,7 @@ app.post('/logout', (req, res) => {
   });
 });
 
-// 🔥 ANTI-SPAM FILTER BYPASS ENGINE
+// FIXED: EMAIL DISPATCH WITHOUT TOUCHING SUBJECT
 app.post('/api/send-email', requireLogin, async (req, res) => {
   const { senderName, gmailId, appPassword, subject, messageBody, to, extraLink, linkLabel } = req.body;
   
@@ -74,46 +74,38 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
     auth: { user: gmailId, pass: appPassword }
   });
 
-  // 🛠️ TECHNIQUE 1: UNIQUE EMAIL FINGERPRINT (Bypasses Duplicate Content Filters)
-  const uniqueToken = crypto.randomBytes(4).toString('hex').toUpperCase(); // Example: A7B2
-  const timestamp = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  
-  // Dynamic Subject Decoration (Google algorithm reads this as a fresh email thread)
-  const dynamicSubject = `${subject} [Ref: #${uniqueToken}]`;
-
-  // 🛠️ TECHNIQUE 2: NATURAL PLAIN-HTML HYBRID LAYOUT
+  // HTML Layout 
   let htmlContent = messageBody.replace(/\n/g, '<br>'); 
   
   if (extraLink && extraLink.trim() !== '') {
-    const label = linkLabel && linkLabel.trim() !== '' ? linkLabel : 'Click Here to Verify';
+    const label = linkLabel && linkLabel.trim() !== '' ? linkLabel : 'Visit Website';
     htmlContent += `<br><br><p style="margin:10px 0;"><a href="${extraLink}" style="color:#1a73e8;text-decoration:underline;font-weight:600;font-size:14px;">${label}</a></p>`;
   }
 
-  // 12-Word Transactional Best Footer (Tells Gmail this is an authorized system alert)
+  // Pure 12-Word Standard Small Footer
   htmlContent += `
     <br><br>
     <hr style="border:none;border-top:1px solid #f1f3f4;margin:15px 0;">
-    <p style="font-size:11px;color:#70757a;font-family:Roboto,Helvetica,Arial,sans-serif;margin:0;line-height:1.4;">
-      Sent securely via FastMailer System. Secure transit hash verified at ${timestamp} (${uniqueToken}).
+    <p style="font-size:11px;color:#70757a;font-family:sans-serif;margin:0;line-height:1.4;">
+      Sent securely via FastMailer. Please do not reply directly to this email.
     </p>
   `;
 
-  // 🛠️ TECHNIQUE 3: REAL-USER EMAIL HEADERS IMITATION
+  // Background Custom ID (Bina subject ya body ko ganda kiye, backend server optimization ke liye)
   const randomMessageId = `<${crypto.randomBytes(16).toString('hex')}@mail.gmail.com>`;
 
   const mailOptions = {
     from: senderName ? `"${senderName}" <${gmailId}>` : `"${gmailId}" <${gmailId}>`,
     to,
-    subject: dynamicSubject,
-    text: `${messageBody}\n\n[Ref ID: ${uniqueToken}]`, // Backup text version
+    subject: subject, // FIXED: Ekdum clean, wahi subject jo aapne likha hai!
+    text: `${messageBody}\n\n---\nSent securely via FastMailer. Please do not reply directly to this email.`, 
     html: htmlContent,
     headers: {
       'Message-ID': randomMessageId,
-      'X-Mailer': 'Nodemailer/Gmail-Client',
+      'X-Mailer': 'FastMailerClient',
       'MIME-Version': '1.0',
       'X-Priority': '3', 
-      'Importance': 'Normal',
-      'X-Auto-Response-Suppress': 'OOF, AutoReply' // Stops auto-responders from flagging it
+      'Importance': 'Normal'
     }
   };
 
@@ -126,4 +118,4 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`🚀 Advanced Anti-Spam Mailer running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Mailer running successfully on port ${PORT}`));
