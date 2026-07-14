@@ -3,23 +3,29 @@ const session    = require('express-session');
 const bodyParser = require('body-parser');
 const nodemailer = require('nodemailer');
 const path       = require('path');
-require('dotenv').config();
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+// ==========================================
+// 🔑 APNA USERNAME AUR PASSWORD YAHAN CHANGE KAREIN:
+const ADMIN_USER = 'admin';       // <--- Apna username yahan likhein
+const ADMIN_PASS = 'admin123';    // <--- Apna secure password yahan likhein
+const SESSION_SECRET = 'fast-mailer-secure-key-2026'; // Session secure rakhne ke liye kuch bhi random text
+// ==========================================
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// SAFE SESSIONS: Added security attributes to prevent cookie theft
+// SAFE SESSIONS
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'fast-mailer-fallback-secure-key-2026',
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: { 
-    secure: process.env.NODE_ENV === 'production', // production mein HTTPS mandatory hai
-    httpOnly: true, // XSS attacks se session cookie protect karta hai
-    sameSite: 'strict', // CSRF protection ke liye
+    secure: false, // Local environment par chalane ke liye false (Production/HTTPS par true kar sakte hain)
+    httpOnly: true, 
+    sameSite: 'strict', 
     maxAge: 1000 * 60 * 60 * 8 // 8 Hours
   }
 }));
@@ -47,14 +53,13 @@ app.get('/launcher', requireLogin, (req, res) => {
 
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-  const validUser = process.env.ADMIN_USER || 'y';
-  const validPass = process.env.ADMIN_PASS || 'y';
 
   if (!username || !password) {
     return res.json({ success: false, message: 'Username and password are required' });
   }
 
-  if (username === validUser && password === validPass) {
+  // Yahan par humne set kiye hue ADMIN_USER aur ADMIN_PASS se matching ho rahi hai
+  if (username === ADMIN_USER && password === ADMIN_PASS) {
     req.session.loggedIn = true;
     return res.json({ success: true });
   }
@@ -66,12 +71,12 @@ app.post('/logout', (req, res) => {
     if (err) {
       return res.status(500).json({ success: false, message: 'Could not log out' });
     }
-    res.clearCookie('connect.sid'); // Session cookie ko browser se delete karna
+    res.clearCookie('connect.sid'); 
     res.json({ success: true });
   });
 });
 
-// SECURE EMAIL DISPATCH: Basic validations and clean error handling
+// SECURE EMAIL DISPATCH
 app.post('/api/send-email', requireLogin, async (req, res) => {
   const { senderName, gmailId, appPassword, subject, messageBody, to } = req.body;
   
@@ -79,7 +84,6 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
     return res.status(400).json({ success: false, message: 'Missing fields' });
   }
 
-  // Simple validation to ensure email input is clean
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(to) || !emailRegex.test(gmailId)) {
     return res.status(400).json({ success: false, message: 'Invalid email format' });
@@ -102,7 +106,6 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
     });
     res.json({ success: true });
   } catch (err) {
-    // Console log se client password leaks ko safety ke liye separate rakha hai
     console.error(`❌ Delivery failed to: ${to}`); 
     res.status(500).json({ success: false, message: 'Failed to send. Please check credentials or API limits.' });
   }
