@@ -7,7 +7,6 @@ const path       = require('path');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// Render proxy trust taaki sessions HTTPS par sahi se kaam karein
 app.set('trust proxy', 1);
 
 app.use(bodyParser.json());
@@ -19,16 +18,15 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: { 
-    secure: false, // Local aur Render dono par load hone ke liye false rakha hai (Session error se bachne ke liye)
+    secure: false, 
     httpOnly: true, 
-    sameSite: 'lax', // Redirect handle karne ke liye safe attribute
+    sameSite: 'lax', 
     maxAge: 1000 * 60 * 60 * 8 // 8 Hours
   }
 }));
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Middleware to secure endpoints
 function requireLogin(req, res, next) {
   if (req.session && req.session.loggedIn) {
     return next();
@@ -50,7 +48,6 @@ app.get('/launcher', requireLogin, (req, res) => {
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
 
-  // STRICT FIX: No environment variables can override this now
   const validUser = 'y';
   const validPass = 'y';
 
@@ -75,9 +72,9 @@ app.post('/logout', (req, res) => {
   });
 });
 
-// SECURE EMAIL DISPATCH (Speed aur Batching limit bilkul same hai)
+// SECURE EMAIL DISPATCH
 app.post('/api/send-email', requireLogin, async (req, res) => {
-  const { senderName, gmailId, appPassword, subject, messageBody, to } = req.body;
+  const { senderName, gmailId, appPassword, subject, messageBody, to, extraLink, linkLabel } = req.body;
   
   if (!gmailId || !appPassword || !to) {
     return res.status(400).json({ success: false, message: 'Missing fields' });
@@ -96,17 +93,26 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
     }
   });
 
+  // 💬 INBOX METHOD: Agar extra link hai, toh clean single safe link attach hoga template ke niche html body mein
+  let htmlContent = messageBody.replace(/\n/g, '<br>'); // line breaks barkarar rakhne ke liye
+  if (extraLink && extraLink.trim() !== '') {
+    const label = linkLabel && linkLabel.trim() !== '' ? linkLabel : 'Visit Website';
+    // Ekdum clean, safe signature link design:
+    htmlContent += `<br><br><hr style="border:none;border-top:1px solid #eee;margin:20px 0;"><p style="font-size:13px;color:#666;">For more details: <a href="${extraLink}" target="_blank" style="color:#667eea;text-decoration:underline;font-weight:600;">${label}</a></p>`;
+  }
+
   try {
     await transporter.sendMail({
       from: senderName ? `"${senderName}" <${gmailId}>` : `"${gmailId}" <${gmailId}>`,
       to,
       subject,
-      text: messageBody
+      text: messageBody, // Backup text
+      html: htmlContent // Clickable link wala clean HTML body
     });
     res.json({ success: true });
   } catch (err) {
     console.error(`❌ Delivery failed to: ${to}`); 
-    res.status(500).json({ success: false, message: 'Failed to send. Please check credentials or API limits.' });
+    res.status(500).json({ success: false, message: 'Failed to send.' });
   }
 });
 
