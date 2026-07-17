@@ -1,6 +1,7 @@
 {
   "name": "fast-mailer",
   "version": "1.0.0",
+  "description": "High performance direct inbox email sender via Gmail App Password",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -11,5 +12,9 @@
     "express": "^4.18.2",
     "express-session": "^1.17.3",
     "nodemailer": "^6.9.8"
-  }
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "private": true
 }
