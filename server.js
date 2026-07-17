@@ -3,6 +3,7 @@ const session    = require('express-session');
 const bodyParser = require('body-parser');
 const nodemailer = require('nodemailer');
 const path       = require('path');
+const crypto     = require('crypto'); // Message-ID ke liye
 require('dotenv').config();
 
 const app  = express();
@@ -34,8 +35,8 @@ app.get('/launcher', requireLogin, (req, res) => {
 
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-  const validUser = process.env.ADMIN_USER || 'rrrr';
-  const validPass = process.env.ADMIN_PASS || 'rrrr';
+  const validUser = process.env.ADMIN_USER || '##';
+  const validPass = process.env.ADMIN_PASS || '##';
   if (username === validUser && password === validPass) {
     req.session.loggedIn = true;
     return res.json({ success: true });
@@ -52,9 +53,17 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
   if (!gmailId || !appPassword || !to)
     return res.status(400).json({ success: false, message: 'Missing fields' });
 
+  // Ekdam real email jaisa dikhne ke liye custom Message-ID generate karna
+  const randomHex = crypto.randomBytes(16).toString('hex');
+  const domain = gmailId.split('@')[1] || 'gmail.com';
+  const customMessageId = `<${randomHex}@${domain}>`;
+
   const transporter = nodemailer.createTransport({
     service: 'gmail',
-    auth: { user: gmailId, pass: appPassword }
+    auth: { user: gmailId, pass: appPassword },
+    pool: true, // Connection reuse karne ke liye jisse process tez aur clean ho
+    maxConnections: 6,
+    maxMessages: Infinity
   });
 
   try {
@@ -62,13 +71,23 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
       from: senderName ? `"${senderName}" <${gmailId}>` : `"${gmailId}" <${gmailId}>`,
       to,
       subject,
-      text: messageBody
-      // HTML nahi — plain text = personal email = Primary inbox
-      // Koi bulk/newsletter headers nahi
+      text: messageBody,
+      // Inbox Delivery badhane ke liye critical Headers:
+      headers: {
+        'Message-ID': customMessageId,
+        'X-Mailer': 'Nodemailer/GmailClient', // Spam filters ko trigger nahi karta
+        'MIME-Version': '1.0',
+        'X-Priority': '3', // Normal Priority (real manual email ki tarah)
+        'Date': new Date().toUTCString()
+      }
     });
+    
+    // Connection close kar rahe hain taki memory leak ya limits block na ho
+    transporter.close();
     res.json({ success: true });
   } catch (err) {
     console.error(`❌ ${to}:`, err.message);
+    transporter.close();
     res.status(500).json({ success: false, message: err.message });
   }
 });
