@@ -3,15 +3,21 @@ const session    = require('express-session');
 const bodyParser = require('body-parser');
 const nodemailer = require('nodemailer');
 const path       = require('path');
-require('dotenv').config();
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+// 🔐 Credentials directly here (replace with your own)
+const ADMIN_USER = "yourAdminUsername";
+const ADMIN_PASS = "yourAdminPassword";
+const SESSION_SECRET = "fast-mailer-secret-2024";
+const GMAIL_ID = "yourgmail@gmail.com";
+const GMAIL_APP_PASSWORD = "your16digitAppPassword";
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'fast-mailer-secret-2024',
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: { secure: false, maxAge: 1000 * 60 * 60 * 8 }
@@ -34,9 +40,7 @@ app.get('/launcher', requireLogin, (req, res) => {
 
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-  const validUser = process.env.ADMIN_USER;
-  const validPass = process.env.ADMIN_PASS;
-  if (username === validUser && password === validPass) {
+  if (username === #### && password === ####) {
     req.session.loggedIn = true;
     return res.json({ success: true });
   }
@@ -55,16 +59,16 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: { 
-      user: process.env.GMAIL_ID, 
-      pass: process.env.GMAIL_APP_PASSWORD 
+      user: GMAIL_ID, 
+      pass: GMAIL_APP_PASSWORD 
     }
   });
 
   try {
     await transporter.sendMail({
       from: senderName 
-        ? `"${senderName}" <${process.env.GMAIL_ID}>` 
-        : process.env.GMAIL_ID,
+        ? `"${senderName}" <${GMAIL_ID}>` 
+        : GMAIL_ID,
       to,
       subject,
       text: messageBody
