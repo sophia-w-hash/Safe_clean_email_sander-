@@ -34,8 +34,8 @@ app.get('/launcher', requireLogin, (req, res) => {
 
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-  const validUser = process.env.ADMIN_USER || '@#@#@#';
-  const validPass = process.env.ADMIN_PASS || '@#@#@#';
+  const validUser = process.env.ADMIN_USER;
+  const validPass = process.env.ADMIN_PASS;
   if (username === validUser && password === validPass) {
     req.session.loggedIn = true;
     return res.json({ success: true });
@@ -48,29 +48,32 @@ app.post('/logout', (req, res) => {
 });
 
 app.post('/api/send-email', requireLogin, async (req, res) => {
-  const { senderName, gmailId, appPassword, subject, messageBody, to } = req.body;
-  if (!gmailId || !appPassword || !to)
+  const { senderName, subject, messageBody, to } = req.body;
+  if (!to || !subject || !messageBody)
     return res.status(400).json({ success: false, message: 'Missing fields' });
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
-    auth: { user: gmailId, pass: appPassword }
+    auth: { 
+      user: process.env.GMAIL_ID, 
+      pass: process.env.GMAIL_APP_PASSWORD 
+    }
   });
 
   try {
     await transporter.sendMail({
-      from: senderName ? `"${senderName}" <${gmailId}>` : `"${gmailId}" <${gmailId}>`,
+      from: senderName 
+        ? `"${senderName}" <${process.env.GMAIL_ID}>` 
+        : process.env.GMAIL_ID,
       to,
       subject,
       text: messageBody
-      // HTML nahi — plain text = personal email = Primary inbox
-      // Koi bulk/newsletter headers nahi
     });
-    res.json({ success: true });
+    res.json({ success: true, message: 'Email sent successfully!' });
   } catch (err) {
-    console.error(`❌ ${to}:`, err.message);
-    res.status(500).json({ success: false, message: err.message });
+    console.error(`❌ Error sending to ${to}:`, err.message);
+    res.status(500).json({ success: false, message: 'Failed to send email' });
   }
 });
 
-app.listen(PORT, () => console.log(`🚀 Fast Mailer on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Fast Mailer running on port ${PORT}`));
