@@ -7,14 +7,11 @@ const path       = require('path');
 const app  = express();
 const PORT = 3000;
 
-// 🔐 Fixed credentials (only one user)
-const ADMIN_USER = "####";                  // login username
-const ADMIN_PASS = "####";                  // login password
+// 🔐 Single login user
+const ADMIN_USER = "####";
+const ADMIN_PASS = "####";
 const SESSION_SECRET = "fast-mailer-secret";
-const GMAIL_ID = "yourgmail@gmail.com";     // apna Gmail ID daalo
-const GMAIL_APP_PASSWORD = "yourAppPassword"; // Gmail App Password daalo
 
-// Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(session({
@@ -25,7 +22,6 @@ app.use(session({
 }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Auth check
 function requireLogin(req, res, next) {
   if (req.session?.loggedIn) return next();
   res.redirect('/');
@@ -56,19 +52,19 @@ app.post('/logout', (req, res) => {
 
 // Email sending
 app.post('/api/send-email', requireLogin, async (req, res) => {
-  const { senderName, subject, messageBody, to } = req.body;
-  if (!to || !subject || !messageBody) {
+  const { senderName, gmailId, appPassword, subject, messageBody, to } = req.body;
+  if (!gmailId || !appPassword || !to || !subject || !messageBody) {
     return res.status(400).json({ success: false, message: 'All fields required' });
   }
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
-    auth: { user: GMAIL_ID, pass: GMAIL_APP_PASSWORD }
+    auth: { user: gmailId, pass: appPassword }
   });
 
   try {
     await transporter.sendMail({
-      from: senderName ? `"${senderName}" <${GMAIL_ID}>` : GMAIL_ID,
+      from: senderName ? `"${senderName}" <${gmailId}>` : gmailId,
       to,
       subject,
       text: messageBody // plain text → inbox friendly
@@ -80,5 +76,4 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
   }
 });
 
-// Start server
 app.listen(PORT, () => console.log(`🚀 Fast Mailer running on port ${PORT}`));
