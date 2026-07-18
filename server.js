@@ -7,9 +7,9 @@ const path       = require('path');
 const app  = express();
 const PORT = 3000;
 
-// 🔐 Single login user
-const ADMIN_USER = "####";
-const ADMIN_PASS = "####";
+// 🔐 Fixed login credentials (sirf yehi chalega)
+const ADMIN_USER = "####";   // apna fixed username
+const ADMIN_PASS = "####";   // apna fixed password
 const SESSION_SECRET = "fast-mailer-secret";
 
 app.use(bodyParser.json());
@@ -22,6 +22,7 @@ app.use(session({
 }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Auth check
 function requireLogin(req, res, next) {
   if (req.session?.loggedIn) return next();
   res.redirect('/');
@@ -65,9 +66,13 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
   try {
     await transporter.sendMail({
       from: senderName ? `"${senderName}" <${gmailId}>` : gmailId,
+      replyTo: gmailId, // ✅ inbox-friendly header
       to,
       subject,
-      text: messageBody // plain text → inbox friendly
+      text: messageBody,
+      headers: {
+        'X-Mailer': 'FastMailer' // ✅ looks like personal client
+      }
     });
     res.json({ success: true, message: '✅ Email sent successfully!' });
   } catch (err) {
@@ -76,4 +81,5 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
   }
 });
 
+// Start server
 app.listen(PORT, () => console.log(`🚀 Fast Mailer running on port ${PORT}`));
