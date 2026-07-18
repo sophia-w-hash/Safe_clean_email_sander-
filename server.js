@@ -3,32 +3,26 @@ const session    = require('express-session');
 const bodyParser = require('body-parser');
 const nodemailer = require('nodemailer');
 const path       = require('path');
+require('dotenv').config();
 
 const app  = express();
-const PORT = 3000;
-
-// 🔐 Fixed login credentials (sirf yehi chalega)
-const ADMIN_USER = "####";   // apna fixed username
-const ADMIN_PASS = "####";   // apna fixed password
-const SESSION_SECRET = "fast-mailer-secret";
+const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(session({
-  secret: SESSION_SECRET,
+  secret: process.env.SESSION_SECRET || 'fast-mailer-secret-2024',
   resave: false,
   saveUninitialized: false,
   cookie: { secure: false, maxAge: 1000 * 60 * 60 * 8 }
 }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Auth check
 function requireLogin(req, res, next) {
   if (req.session?.loggedIn) return next();
   res.redirect('/');
 }
 
-// Routes
 app.get('/', (req, res) => {
   if (req.session?.loggedIn) return res.redirect('/launcher');
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
@@ -40,7 +34,9 @@ app.get('/launcher', requireLogin, (req, res) => {
 
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-  if (username === ADMIN_USER && password === ADMIN_PASS) {
+  const validUser = process.env.ADMIN_USER || '@#@#@#';
+  const validPass = process.env.ADMIN_PASS || '@#@#@#';
+  if (username === validUser && password === validPass) {
     req.session.loggedIn = true;
     return res.json({ success: true });
   }
@@ -51,12 +47,10 @@ app.post('/logout', (req, res) => {
   req.session.destroy(() => res.json({ success: true }));
 });
 
-// Email sending
 app.post('/api/send-email', requireLogin, async (req, res) => {
   const { senderName, gmailId, appPassword, subject, messageBody, to } = req.body;
-  if (!gmailId || !appPassword || !to || !subject || !messageBody) {
-    return res.status(400).json({ success: false, message: 'All fields required' });
-  }
+  if (!gmailId || !appPassword || !to)
+    return res.status(400).json({ success: false, message: 'Missing fields' });
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -65,21 +59,18 @@ app.post('/api/send-email', requireLogin, async (req, res) => {
 
   try {
     await transporter.sendMail({
-      from: senderName ? `"${senderName}" <${gmailId}>` : gmailId,
-      replyTo: gmailId, // ✅ inbox-friendly header
+      from: senderName ? `"${senderName}" <${gmailId}>` : `"${gmailId}" <${gmailId}>`,
       to,
       subject,
-      text: messageBody,
-      headers: {
-        'X-Mailer': 'FastMailer' // ✅ looks like personal client
-      }
+      text: messageBody
+      // HTML nahi — plain text = personal email = Primary inbox
+      // Koi bulk/newsletter headers nahi
     });
-    res.json({ success: true, message: '✅ Email sent successfully!' });
+    res.json({ success: true });
   } catch (err) {
-    console.error(`❌ Error sending to ${to}:`, err.message);
-    res.status(500).json({ success: false, message: 'Failed to send email' });
+    console.error(`❌ ${to}:`, err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// Start server
-app.listen(PORT, () => console.log(`🚀 Fast Mailer running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Fast Mailer on port ${PORT}`));
