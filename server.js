@@ -9,6 +9,7 @@ const PORT = process.env.PORT || 3000;
 
 // 🔐 Fixed credentials (only one user)
 const ADMIN_USER = "####";
+const ADMIN_PASS = "####";
 const SESSION_SECRET = "fast-mailer-secret-2024";
 const GMAIL_ID = "yourgmail@gmail.com";            // apna Gmail ID daalo
 const GMAIL_APP_PASSWORD = "your16digitAppPassword"; // Gmail App Password daalo
