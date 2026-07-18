@@ -5,7 +5,7 @@ const nodemailer = require('nodemailer');
 const path       = require('path');
 
 const app  = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 // 🔐 Fixed credentials (only one user)
 const ADMIN_USER = "####";                  // login username
