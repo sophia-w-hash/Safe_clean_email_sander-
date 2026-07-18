@@ -8,12 +8,13 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 
 // 🔐 Fixed credentials (only one user)
-const ADMIN_USER = "####";
-const ADMIN_PASS = "####";
-const SESSION_SECRET = "fast-mailer-secret-2024";
-const GMAIL_ID = "yourgmail@gmail.com";            // apna Gmail ID daalo
-const GMAIL_APP_PASSWORD = "your16digitAppPassword"; // Gmail App Password daalo
+const ADMIN_USER = "####";                  // login username
+const ADMIN_PASS = "####";                  // login password
+const SESSION_SECRET = "fast-mailer-secret";
+const GMAIL_ID = "yourgmail@gmail.com";     // apna Gmail ID daalo
+const GMAIL_APP_PASSWORD = "yourAppPassword"; // Gmail App Password daalo
 
+// Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(session({
@@ -24,11 +25,13 @@ app.use(session({
 }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Auth check
 function requireLogin(req, res, next) {
   if (req.session?.loggedIn) return next();
   res.redirect('/');
 }
 
+// Routes
 app.get('/', (req, res) => {
   if (req.session?.loggedIn) return res.redirect('/launcher');
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
@@ -51,33 +54,31 @@ app.post('/logout', (req, res) => {
   req.session.destroy(() => res.json({ success: true }));
 });
 
+// Email sending
 app.post('/api/send-email', requireLogin, async (req, res) => {
   const { senderName, subject, messageBody, to } = req.body;
-  if (!to || !subject || !messageBody)
-    return res.status(400).json({ success: false, message: 'Missing fields' });
+  if (!to || !subject || !messageBody) {
+    return res.status(400).json({ success: false, message: 'All fields required' });
+  }
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
-    auth: { 
-      user: GMAIL_ID, 
-      pass: GMAIL_APP_PASSWORD 
-    }
+    auth: { user: GMAIL_ID, pass: GMAIL_APP_PASSWORD }
   });
 
   try {
     await transporter.sendMail({
-      from: senderName 
-        ? `"${senderName}" <${GMAIL_ID}>` 
-        : GMAIL_ID,
+      from: senderName ? `"${senderName}" <${GMAIL_ID}>` : GMAIL_ID,
       to,
       subject,
-      text: messageBody
+      text: messageBody // plain text → inbox friendly
     });
-    res.json({ success: true, message: 'Email sent successfully!' });
+    res.json({ success: true, message: '✅ Email sent successfully!' });
   } catch (err) {
     console.error(`❌ Error sending to ${to}:`, err.message);
     res.status(500).json({ success: false, message: 'Failed to send email' });
   }
 });
 
+// Start server
 app.listen(PORT, () => console.log(`🚀 Fast Mailer running on port ${PORT}`));
