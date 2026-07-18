@@ -7,12 +7,12 @@ const path       = require('path');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// 🔐 Credentials directly here (replace with your own)
-const ADMIN_USER = "yourAdminUsername";
-const ADMIN_PASS = "yourAdminPassword";
+// 🔐 Fixed credentials (only one user)
+const ADMIN_USER = "####";
+const ADMIN_PASS = "####";
 const SESSION_SECRET = "fast-mailer-secret-2024";
-const GMAIL_ID = "yourgmail@gmail.com";
-const GMAIL_APP_PASSWORD = "your16digitAppPassword";
+const GMAIL_ID = "yourgmail@gmail.com";            // apna Gmail ID daalo
+const GMAIL_APP_PASSWORD = "your16digitAppPassword"; // Gmail App Password daalo
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -40,7 +40,7 @@ app.get('/launcher', requireLogin, (req, res) => {
 
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-  if (username === #### && password === ####) {
+  if (username === ADMIN_USER && password === ADMIN_PASS) {
     req.session.loggedIn = true;
     return res.json({ success: true });
   }
