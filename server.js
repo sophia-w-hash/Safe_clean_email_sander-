@@ -1,3 +1,4 @@
+// server.js
 const express    = require('express');
 const session    = require('express-session');
 const bodyParser = require('body-parser');
@@ -34,8 +35,8 @@ app.get('/launcher', requireLogin, (req, res) => {
 
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-  const validUser = process.env.ADMIN_USER || 'Y##';
-  const validPass = process.env.ADMIN_PASS || 'Y##';
+  const validUser = process.env.ADMIN_USER || 'admin';
+  const validPass = process.env.ADMIN_PASS || 'admin123';
   if (username === validUser && password === validPass) {
     req.session.loggedIn = true;
     return res.json({ success: true });
@@ -44,33 +45,74 @@ app.post('/login', (req, res) => {
 });
 
 app.post('/logout', (req, res) => {
-  req.session.destroy(() => res.json({ success: true }));
+  req.session.destroy(() => {
+    res.clearCookie('connect.sid');
+    return res.json({ success: true });
+  });
 });
 
-app.post('/api/send-email', requireLogin, async (req, res) => {
-  const { senderName, gmailId, appPassword, subject, messageBody, to } = req.body;
-  if (!gmailId || !appPassword || !to)
+// Helper functions for variation
+function randomTag() {
+  return Math.random().toString(36).substring(2, 6); // 4-char random
+}
+
+const phrases = [
+  "Hope you're doing well!",
+  "Wishing you a productive day!",
+  "Just reaching out with this quick note.",
+  "Sharing this update with you.",
+  "Here’s something important for you.",
+  "Glad to connect with you today.",
+  "Sending this message with best regards.",
+  "Hope this finds you in good health.",
+  "A quick update for your attention.",
+  "Please take a moment to read this."
+];
+
+// Bulk email API
+app.post('/api/send-bulk-email', requireLogin, async (req, res) => {
+  const { senderName, gmailId, appPassword, subject, messageBody, recipients } = req.body;
+
+  if (!gmailId || !appPassword || !recipients || !subject || !messageBody) {
     return res.status(400).json({ success: false, message: 'Missing fields' });
+  }
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: { user: gmailId, pass: appPassword }
   });
 
-  try {
-    await transporter.sendMail({
-      from: senderName ? `"${senderName}" <${gmailId}>` : `"${gmailId}" <${gmailId}>`,
-      to,
-      subject,
-      text: messageBody
-      // HTML nahi — plain text = personal email = Primary inbox
-      // Koi bulk/newsletter headers nahi
+  async function sendWithDelay(to, index) {
+    return new Promise(resolve => {
+      setTimeout(async () => {
+        try {
+          const variation = phrases[index % phrases.length];
+          const finalSubject = `${subject} [${randomTag()}]`;
+          const finalBody = `${variation}\n\n${messageBody}`;
+
+          await transporter.sendMail({
+            from: senderName ? `"${senderName}" <${gmailId}>` : gmailId,
+            to,
+            subject: finalSubject,
+            text: finalBody,
+            html: `<div style="font-size:18px; font-family:Arial; color:#222;">
+                     <p>${variation}</p>
+                     <p>${messageBody}</p>
+                   </div>`
+          });
+          console.log(`✅ Sent to ${to}`);
+          resolve({ to, success: true });
+        } catch (err) {
+          console.error(`❌ Failed to send to ${to}:`, err.message);
+          resolve({ to, success: false, error: err.message });
+        }
+      }, index * 1000); // 1 second gap
     });
-    res.json({ success: true });
-  } catch (err) {
-    console.error(`❌ ${to}:`, err.message);
-    res.status(500).json({ success: false, message: err.message });
   }
+
+  const results = await Promise.all(recipients.map((to, i) => sendWithDelay(to, i)));
+
+  res.json({ success: true, results });
 });
 
-app.listen(PORT, () => console.log(`🚀 Fast Mailer on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Fast Mailer running on port ${PORT}`));
