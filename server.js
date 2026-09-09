@@ -1,4 +1,3 @@
-// server.js
 const express    = require('express');
 const session    = require('express-session');
 const bodyParser = require('body-parser');
@@ -12,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'fast-mailer-secret-2024',
+  secret: process.env.SESSION_SECRET || 'fast-mailer-secret-2026',
   resave: false,
   saveUninitialized: false,
   cookie: { secure: false, maxAge: 1000 * 60 * 60 * 8 }
@@ -51,66 +50,67 @@ app.post('/logout', (req, res) => {
   });
 });
 
-// Helper functions for variation
-function randomTag() {
-  return Math.random().toString(36).substring(2, 6); // 4-char random
-}
-
-const phrases = [
-  "Hope you're doing well!",
-  "Wishing you a productive day!",
-  "Just reaching out with this quick note.",
-  "Sharing this update with you.",
-  "Here’s something important for you.",
-  "Glad to connect with you today.",
-  "Sending this message with best regards.",
-  "Hope this finds you in good health.",
-  "A quick update for your attention.",
-  "Please take a moment to read this."
-];
-
-// Bulk email API
+// Bulk email API (Sequential Processing Fix)
 app.post('/api/send-bulk-email', requireLogin, async (req, res) => {
   const { senderName, gmailId, appPassword, subject, messageBody, recipients } = req.body;
 
   if (!gmailId || !appPassword || !recipients || !subject || !messageBody) {
-    return res.status(400).json({ success: false, message: 'Missing fields' });
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
   }
 
+  // App Password Formatting (Spaces remove karna necessary hai)
+  const cleanAppPassword = appPassword.replace(/\s+/g, '');
+
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: gmailId, pass: appPassword }
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // TLS/SSL
+    auth: { 
+      user: gmailId.trim(), 
+      pass: cleanAppPassword 
+    }
   });
 
-  async function sendWithDelay(to, index) {
-    return new Promise(resolve => {
-      setTimeout(async () => {
-        try {
-          const variation = phrases[index % phrases.length];
-          const finalSubject = `${subject} [${randomTag()}]`;
-          const finalBody = `${variation}\n\n${messageBody}`;
-
-          await transporter.sendMail({
-            from: senderName ? `"${senderName}" <${gmailId}>` : gmailId,
-            to,
-            subject: finalSubject,
-            text: finalBody,
-            html: `<div style="font-size:18px; font-family:Arial; color:#222;">
-                     <p>${variation}</p>
-                     <p>${messageBody}</p>
-                   </div>`
-          });
-          console.log(`✅ Sent to ${to}`);
-          resolve({ to, success: true });
-        } catch (err) {
-          console.error(`❌ Failed to send to ${to}:`, err.message);
-          resolve({ to, success: false, error: err.message });
-        }
-      }, index * 1000); // 1 second gap
+  // Step 1: Verification Check
+  try {
+    await transporter.verify();
+  } catch (verifyError) {
+    console.error("SMTP Auth Failed:", verifyError.message);
+    return res.json({
+      success: false,
+      message: `Authentication Failed: ${verifyError.message}. Check App Password & 2FA.`
     });
   }
 
-  const results = await Promise.all(recipients.map((to, i) => sendWithDelay(to, i)));
+  const emailList = Array.isArray(recipients) 
+    ? recipients 
+    : recipients.split('\n').map(e => e.trim()).filter(e => e.length > 0);
+
+  const results = [];
+
+  // Step 2: Loop execution (One by One)
+  for (let i = 0; i < emailList.length; i++) {
+    const to = emailList[i];
+    try {
+      await transporter.sendMail({
+        from: senderName ? `"${senderName}" <${gmailId}>` : gmailId,
+        to: to,
+        subject: subject,
+        text: messageBody // Clean plain text for standard inboxing
+      });
+
+      console.log(`✅ Sent to ${to}`);
+      results.push({ to, success: true });
+    } catch (err) {
+      console.error(`❌ Failed to send to ${to}:`, err.message);
+      results.push({ to, success: false, error: err.message });
+    }
+
+    // Delay between emails to avoid rate limits
+    if (i < emailList.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 3000)); // 3 Seconds gap
+    }
+  }
 
   res.json({ success: true, results });
 });
