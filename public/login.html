@@ -2,29 +2,162 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login - Fast Mailer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      background: #eef0ff;
+      font-family: 'Inter', sans-serif;
+      color: #1a1a2e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-card {
+      background: #ffffff;
+      border: 2px solid #dde1ff;
+      border-radius: 16px;
+      padding: 32px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 4px 20px rgba(102, 126, 234, 0.1);
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1a1a2e;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .logo span { color: #667eea; }
+    .subtitle {
+      font-size: 13px;
+      color: #666;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 7px;
+    }
+    .field input {
+      width: 100%;
+      padding: 12px 15px;
+      background: #f5f6ff;
+      border: 2px solid #dde1ff;
+      border-radius: 10px;
+      color: #1a1a2e;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .field input:focus {
+      border-color: #667eea;
+      background: #ffffff;
+      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.12);
+    }
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border: none;
+      border-radius: 10px;
+      color: #ffffff;
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 10px;
+    }
+    .submit-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.35);
+    }
+    .submit-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .error-alert {
+      display: none;
+      padding: 12px;
+      background: #fff5f5;
+      border: 2px solid #ffcccc;
+      border-radius: 8px;
+      color: #e53e3e;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 18px;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
-  <h2>Login</h2>
-  <form id="loginForm">
-    <input type="text" name="username" placeholder="Username" required><br>
-    <input type="password" name="password" placeholder="Password" required><br>
-    <button type="submit">Login</button>
-  </form>
 
-  <script>
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
+<div class="login-card">
+  <div class="logo">📧 Fast<span>Mailer</span></div>
+  <div class="subtitle">Enter your credentials to access the console</div>
+
+  <div class="error-alert" id="errorMsg"></div>
+
+  <form id="loginForm">
+    <div class="field">
+      <label>Username</label>
+      <input type="text" name="username" placeholder="Enter username" required autocomplete="username">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" name="password" placeholder="Enter password" required autocomplete="current-password">
+    </div>
+    <button type="submit" class="submit-btn" id="loginBtn">Login ➔</button>
+  </form>
+</div>
+
+<script>
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('loginBtn');
+    const errBox = document.getElementById('errorMsg');
+    
+    btn.disabled = true;
+    btn.innerText = 'Authenticating...';
+    errBox.style.display = 'none';
+
+    try {
       const formData = new FormData(e.target);
       const res = await fetch('/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(Object.fromEntries(formData))
       });
+
       const data = await res.json();
-      if (data.success) window.location.href = '/launcher';
-      else alert(data.message);
-    });
-  </script>
+
+      if (data.success) {
+        window.location.href = '/launcher';
+      } else {
+        errBox.innerText = data.message || 'Invalid Credentials';
+        errBox.style.display = 'block';
+      }
+    } catch (err) {
+      errBox.innerText = 'Server connection failed!';
+      errBox.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.innerText = 'Login ➔';
+    }
+  });
+</script>
+
 </body>
 </html>
