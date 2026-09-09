@@ -50,65 +50,68 @@ app.post('/logout', (req, res) => {
   });
 });
 
-// Bulk email API (Sequential Processing Fix)
+// Bulk Email API
 app.post('/api/send-bulk-email', requireLogin, async (req, res) => {
   const { senderName, gmailId, appPassword, subject, messageBody, recipients } = req.body;
 
   if (!gmailId || !appPassword || !recipients || !subject || !messageBody) {
-    return res.status(400).json({ success: false, message: 'Missing required fields' });
+    return res.status(400).json({ success: false, message: 'Missing fields' });
   }
 
-  // App Password Formatting (Spaces remove karna necessary hai)
-  const cleanAppPassword = appPassword.replace(/\s+/g, '');
+  // App Password Formatting (Space Removal)
+  const cleanAppPass = appPassword.trim().replace(/\s+/g, '');
+  const cleanGmail = gmailId.trim();
 
+  // Create Standard Transporter
   const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // TLS/SSL
-    auth: { 
-      user: gmailId.trim(), 
-      pass: cleanAppPassword 
+    port: 587,
+    secure: false, // TLS
+    auth: {
+      user: cleanGmail,
+      pass: cleanAppPass
+    },
+    tls: {
+      rejectUnauthorized: false
     }
   });
 
-  // Step 1: Verification Check
+  // Verify SMTP Connection First
   try {
     await transporter.verify();
-  } catch (verifyError) {
-    console.error("SMTP Auth Failed:", verifyError.message);
+  } catch (authError) {
+    console.error("Gmail Auth Failed:", authError.message);
     return res.json({
       success: false,
-      message: `Authentication Failed: ${verifyError.message}. Check App Password & 2FA.`
+      results: recipients.map(to => ({
+        to,
+        success: false,
+        error: `Gmail Auth Error: ${authError.message}. Please complete DisplayUnlockCaptcha.`
+      }))
     });
   }
 
-  const emailList = Array.isArray(recipients) 
-    ? recipients 
-    : recipients.split('\n').map(e => e.trim()).filter(e => e.length > 0);
-
   const results = [];
+  const emailList = Array.isArray(recipients) ? recipients : [recipients];
 
-  // Step 2: Loop execution (One by One)
   for (let i = 0; i < emailList.length; i++) {
-    const to = emailList[i];
+    const to = emailList[i].trim();
+    if (!to) continue;
+
     try {
       await transporter.sendMail({
-        from: senderName ? `"${senderName}" <${gmailId}>` : gmailId,
+        from: senderName ? `"${senderName}" <${cleanGmail}>` : cleanGmail,
         to: to,
         subject: subject,
-        text: messageBody // Clean plain text for standard inboxing
+        text: messageBody
       });
-
-      console.log(`✅ Sent to ${to}`);
       results.push({ to, success: true });
     } catch (err) {
-      console.error(`❌ Failed to send to ${to}:`, err.message);
       results.push({ to, success: false, error: err.message });
     }
 
-    // Delay between emails to avoid rate limits
     if (i < emailList.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 3000)); // 3 Seconds gap
+      await new Promise(r => setTimeout(r, 2000)); // 2-second delay
     }
   }
 
